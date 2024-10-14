@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ProjectGuid>22174344-96B0-413C-A214-2AB5CCA84615</ProjectGuid>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Authors>Channels Team</Authors>
+    <Company>NICE inContact</Company>
+    <Description>TestCustomSmtpConfigurationResponse for CloudEmail.</Description>
+    <RootNamespace>CloudEmail.SendEmail.API.Models</RootNamespace>
+    <AssemblyName>CloudEmail.SendEmail.API.Models</AssemblyName>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>True</IncludeSymbols>
+    <IncludeSource>True</IncludeSource>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CloudEmail.API.Models" Version="1.3.124-alpha-DE-37217-DE-36494.33" />
+    <PackageReference Include="CloudEmail.Common" Version="20.0.92-alpha-DE-53943.2" />
+  </ItemGroup>
+  
+</Project>

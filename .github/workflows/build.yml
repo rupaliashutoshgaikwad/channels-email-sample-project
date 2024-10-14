@@ -1,0 +1,31 @@
+name: Build
+run-name: "${{ github.event.head_commit.message }} | ${{ github.actor }} | ${{ github.event_name }} | ${{ github.ref }}"
+on: [push]
+
+jobs:
+  test_server_ca:
+    env:
+      TESTSERVERCA_PEM: ${{ secrets.TESTSERVERCA_PEM }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create testserverca.pem
+        run: |
+          echo "$TESTSERVERCA_PEM" > testserverca.pem
+      - name: Upload testserverca.pem
+        uses: actions/upload-artifact@v4
+        with:
+          name: testserverca.certs
+          path: testserverca.pem
+
+  build:
+    needs: [test_server_ca]
+    secrets: inherit
+    uses: inContact/channels-cicd/.github/workflows/dotnet.yml@master
+    with:
+      name: send-email-api
+      # packages: ./CloudEmail.SendEmail.API.Client/CloudEmail.SendEmail.API.Client.csproj ./CloudEmail.SendEmail.API.Models/CloudEmail.SendEmail.API.Models.csproj 
+      solution: "CloudEmail.SendEmail.API.sln"
+      promotion-keys: >-
+       [
+         {"channels-email-send-email-api-do": "main|.*-deploy.*|.*"}
+       ]

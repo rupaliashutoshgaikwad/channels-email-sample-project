@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.34928.147
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudEmail.SampleProject.API", "CloudEmail.SampleProject.API\CloudEmail.SampleProject.API.csproj", "{A05BDFAB-3076-4EA6-A192-B63BEF154101}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{FC90881C-A00E-4D55-973B-CDE63A57C082}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudEmail.SampleProject.API.Tests", "CloudEmail.SampleProject.API.Tests\CloudEmail.SampleProject.API.Tests.csproj", "{C884B335-753B-44A0-BEF1-C907F2B4580B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudEmail.SampleProject.API.Client", "CloudEmail.SampleProject.API.Client\CloudEmail.SampleProject.API.Client.csproj", "{E83781FB-E8DA-405E-8C63-920874D19B84}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudEmail.SampleProject.API.Automation", "CloudEmail.SampleProject.API.Automation\CloudEmail.SampleProject.API.Automation.csproj", "{F34456BC-E946-48C6-857D-2A550824915F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudEmail.SampleProject.API.Models", "CloudEmail.SampleProject.API.Models\CloudEmail.SampleProject.API.Models.csproj", "{22174344-96B0-413C-A214-2AB5CCA84615}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A05BDFAB-3076-4EA6-A192-B63BEF154101}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A05BDFAB-3076-4EA6-A192-B63BEF154101}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A05BDFAB-3076-4EA6-A192-B63BEF154101}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A05BDFAB-3076-4EA6-A192-B63BEF154101}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C884B335-753B-44A0-BEF1-C907F2B4580B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C884B335-753B-44A0-BEF1-C907F2B4580B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C884B335-753B-44A0-BEF1-C907F2B4580B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C884B335-753B-44A0-BEF1-C907F2B4580B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E83781FB-E8DA-405E-8C63-920874D19B84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E83781FB-E8DA-405E-8C63-920874D19B84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E83781FB-E8DA-405E-8C63-920874D19B84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E83781FB-E8DA-405E-8C63-920874D19B84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F34456BC-E946-48C6-857D-2A550824915F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F34456BC-E946-48C6-857D-2A550824915F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F34456BC-E946-48C6-857D-2A550824915F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F34456BC-E946-48C6-857D-2A550824915F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22174344-96B0-413C-A214-2AB5CCA84615}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22174344-96B0-413C-A214-2AB5CCA84615}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22174344-96B0-413C-A214-2AB5CCA84615}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22174344-96B0-413C-A214-2AB5CCA84615}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C884B335-753B-44A0-BEF1-C907F2B4580B} = {FC90881C-A00E-4D55-973B-CDE63A57C082}
+		{F34456BC-E946-48C6-857D-2A550824915F} = {FC90881C-A00E-4D55-973B-CDE63A57C082}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {531E1273-EECB-44EC-9A56-CB2EFA8D7C54}
+	EndGlobalSection
+EndGlobal

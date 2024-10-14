@@ -1,0 +1,67 @@
+﻿Logging:
+  LogLevel:
+    Default: Debug
+    System: Error
+    Microsoft: Error
+
+AllowedHosts: "*"
+
+AWS:
+  Region: us-west-2
+
+CLOUDWATCH_NAMESPACE: so-Email
+
+Auth:
+  Token: eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NDQyMDYwNTEsImlzcyI6Imh0dHA6Ly9lbWFpbC1hcGktc3RhZ2luZy5pbi5sYWIifQ.I9NEc81eOigv7WPguJrPqLP5esojYRyYI1Xa9ex_aEI
+
+SendEmailApiConfiguration:
+  BaseUrl: http://send-email-api-na1.staging.inucn.com/api/v1
+  BasicToken: c2VuZC1lbWFpbC1hcGktYXV0b21hdGlvbjpiYXNpYw==
+  FileServerVip: "fs-so32.vipstaging.in.lab"
+
+AppSettings:
+  StorageService:
+    User: "channels"
+    Pass: "F9ou2hiu!"
+    Host: "https://26g64no5k9.execute-api.us-west-2.amazonaws.com/beta"
+    Port: "0"
+    Bucket: "ic-tc5"
+    Prefix: ""
+    Cluster: hc1
+  ApplicationRegistration:
+    Name: Staging Email API Automation
+
+TestSendEmailConfiguration:
+  ContactId: "1"
+  BusinessUnit: 5333
+  ToAddress: "noreply@icmailtest.com"
+  FromAddress: "test_send_email@niceincontact.com"
+  Subject: "Test Send Email Job"
+
+ChannelsGmailImapAccess:
+  Host: "imap.gmail.com"
+  Port: 993
+  Username: "john.mckenna.nice@gmail.com"
+  Password: "abxyseowyhzzshby"
+
+CustomSmtpConfiguration:
+  Host: "smtp.gmail.com"
+  Port: 465
+  TlsOption:
+    Id: 3
+    Name: "Require TLS"
+  BusinessUnitNumber: 614101
+  FromAddress: "do83customSMTP@gmail.com"
+  ToAddress: "noreply@sc.incontactemail.com"
+
+SESConfiguration:
+  BusinessUnitNumber: 5333
+  FromAddress: sc.incontactemail.com
+  ToAddress: "noreply@sc.incontactemail.com"
+
+KerioConfiguration:
+  BusinessUnitNumber: 5333
+  ToAddress: "noreply@sc.incontactemail.com"
+
+RetryCountConfiguration:
+  MaxRetryCount: 3

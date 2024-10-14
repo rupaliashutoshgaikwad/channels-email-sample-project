@@ -1,0 +1,166 @@
+import groovy.json.JsonOutput
+
+def dotnet_ci_image="channels-email-ci-dotnetcore"
+def ENVIRONMENT=""
+
+pipeline {
+    agent {
+        docker {
+            image "${dotnet_ci_image}:latest"
+            args "--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock"
+            alwaysPull true
+            customWorkspace "sample-project/${BUILD_ID}+${BUILD_TIMESTAMP}"
+            reuseNode false
+            registryUrl 'https://369498121101.dkr.ecr.us-west-2.amazonaws.com'
+            registryCredentialsId 'ecr:us-west-2:ServiceAccess-jenkins-ecr_369498121101'
+        }
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
+    environment {
+        TAGS="owner=channels,product=cloudemail"
+        IGNORE_NORMALISATION_GIT_HEAD_MOVE=1
+        BRANCHNAME="${env.BRANCH_NAME}"
+        GITHUB_TOKEN=credentials("GITHUB_TOKEN_INCONTACTBUILDUSER")
+        SCRIPTS_REPO_URI_WTOKEN="https://oauth2:${GITHUB_TOKEN}@github.com/inContact/channels-cicd.git"
+        BUILD_NOTIFY_WEBHOOK=credentials("channels-1-build-notifications-webhook-url")
+        PROJECT_VERSION="${PROJECT_VERSION.replaceFirst(/^.*\//, '')}"
+    }
+    stages {
+        stage("Check Out Versions") {
+            steps {
+                acquireScripts()
+                changeRevision()
+                setEnvironment()
+            }
+        }
+     
+        stage("Deploy Cloudformation Infrastructure") {
+            options {
+                lock("Deploy send email api cloud formation to ${ENVIRONMENT}")
+            }
+            environment {
+                STACK_NAME="channels-email-sample-project-supplemental-infrastructure"
+                STACK_FILE="cloudformation/supplemental-infrastructure.yml"
+            }
+            steps {
+                withCredentials([ string(credentialsId: 'channels-email_sample_project_apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+                    withAWS(role:"${AWS_DEPLOY_ROLE}", roleAccount:"${AWS_ACCOUNT_ID}", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'sample-project-pipeline'){
+                        withEnv(["AWS_REGION=${AWS_DEFAULT_REGION}","AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}"]) {
+                            deployCf()
+                        }
+                    }
+                }
+            }
+        }
+        stage("Deploy Kubernetes Pods") {
+            when {
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }
+            }
+            options {
+                lock("deploy send email api service to ${ENVIRONMENT}")
+            }
+            environment {
+                POD_SERVICE_ROLE="${POD_SERVICE_ROLE}"
+                ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT}"
+                AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}"
+                EXTERNAL_URL="${EXTERNAL_URL}"
+                MIN_REPLICAS="${MIN_REPLICAS}"
+                MAX_REPLICAS="${MAX_REPLICAS}"
+            }
+            steps {
+                withCredentials([ string(credentialsId: 'channels-email_sample_project_apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+                    withAWS(role:"${AWS_DEPLOY_ROLE}", roleAccount:"${AWS_ACCOUNT_ID}", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'sample-project-pipeline'){
+                        withEnv(["AWS_REGION=${AWS_DEFAULT_REGION}","AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}"]) {
+                            deployK8s()
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            notifyBuildFailure()
+        }
+        fixed {
+            notifyBuildFixed()
+        }
+    }
+}
+def notifyBuildFailure() {
+    office365ConnectorSend(
+        message:"${env.JOB_NAME} #${env.BUILD_NUMBER} failed! (<a href=\"${env.RUN_DISPLAY_URL}\">Open</a>)",
+        color: "8B0000",
+        status: "FAILED",
+        webhookUrl: "${env.BUILD_NOTIFY_WEBHOOK}"
+    )
+}
+def notifyBuildFixed() {
+    office365ConnectorSend(
+        message:"${env.JOB_NAME} #${env.BUILD_NUMBER} has been fixed! (<a href=\"${env.RUN_DISPLAY_URL}\">Open</a>)",
+        color: "228B22",
+        status: "SUCCESS",
+        webhookUrl: "${env.BUILD_NOTIFY_WEBHOOK}"
+    )
+}
+def setEnvironment(){
+    configFileProvider([configFile(fileId: 'folder-config', targetLocation: 'config')]) {
+        config = readJSON file: 'config'
+    }
+    ENVIRONMENT="${config.ENVIRONMENT}"
+
+    envParams = readJSON file: 'scripts/config/environmentConfig.json'
+
+    params = envParams["$ENVIRONMENT"]
+
+    ASPNETCORE_ENVIRONMENT="${params.ASPNETCORE_ENVIRONMENT}"
+    AWS_AREA_ID="${params.AREA_ID}"
+    AWS_TWO_LETTER_ID="${params.AWS_TWO_LETTER_ID}"
+    AWS_ACCOUNT_ID="${params.AWS_ACCOUNT_ID}"
+    AWS_DEFAULT_REGION="${params.AWS_DEFAULT_REGION}"
+    AWS_DEPLOY_ROLE="ServiceAccess-channels-email-sample-project-pipeline"
+    EXTERNAL_URL="sample-project-${params.AREA_ID}.${params.EXTERNAL_URL}"
+    POD_SERVICE_ROLE="ServiceAccess-channels-email-sample-project"
+    MIN_REPLICAS="${MIN_REPLICAS}"
+    MAX_REPLICAS="${MAX_REPLICAS}"
+}
+def acquireScripts() {
+    sh """
+        if [ -d "scripts" ]; then
+            cd scripts && git fetch --all && git reset --hard origin/master
+        else
+            git clone ${SCRIPTS_REPO_URI_WTOKEN} scripts -b master
+            cd scripts && find . -type f -iname "*.sh" -exec chmod +x {} \\;
+        fi
+    """
+    echo "Scripts cloned and made executable."
+}
+def deployCf() {
+    sh "scripts/cd/tasks/deploy-cf-template.sh ${PROJECT_VERSION}"
+}
+def changeRevision() {
+    sh "scripts/jenkins/checkout-tag-branch.sh"
+}
+def deployK8s() {
+    sh """
+        scripts/cd/tasks/replace-in-yaml.sh \
+            --file='k8s/sample-project-deployment.yml.template' \
+            --replacements='{{AWS_ACCOUNT_ID}}=${AWS_ACCOUNT_ID} {{POD_SERVICE_ROLE}}=${POD_SERVICE_ROLE} {{PROJECT_VERSION}}=${PROJECT_VERSION} {{ASPNETCORE_ENVIRONMENT}}=${ASPNETCORE_ENVIRONMENT} {{MIN_REPLICAS}}=${MIN_REPLICAS} {{MAX_REPLICAS}}=${MAX_REPLICAS}'
+    """
+    sh """
+        scripts/kubernetes/kubectl/apply-deployment-with-rollback.sh \
+            --file='k8s/sample-project-deployment.yml.template' \
+            --namespace='outbound' \
+            --deployment_name='sample-project' \
+            --cluster_name='channels-email' \
+    """
+    sh """
+        scripts/kubernetes/kubectl/apply-generic.sh \
+            --file='k8s/sample-project-service.yml' \
+            --cluster_name='channels-email'
+    """
+}

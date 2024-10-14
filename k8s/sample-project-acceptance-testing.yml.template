@@ -1,0 +1,36 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sample-project-acceptance
+  namespace: testing
+  labels:
+    app: sample-project-acceptance
+    version: {{PROJECT_VERSION}}
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    metadata:
+      labels:
+        app: sample-project-acceptance
+      annotations:
+        iam.amazonaws.com/role: arn:aws:iam::{{AWS_ACCOUNT_ID}}:role/{{POD_SERVICE_ROLE}}
+    spec:
+      containers:
+      - name: sample-project-acceptance
+        command: ["/bin/sh","-c"]
+        args:
+        - "dotnet test CloudEmail.SendEmail.API.Automation/CloudEmail.SendEmail.API.Automation.csproj --filter Category=Acceptance --no-restore --no-build -r ./CloudEmail.SendEmail.API.Automation/ --logger trx > stdout.log && cat /app/CloudEmail.SendEmail.API.Automation/**.trx || cat stdout.log; /bin/sleep 10; curl --silent --output /dev/null --show-error --fail -fsI -X POST http://localhost:15020/quitquitquit"
+        image: "{{AWS_ACCOUNT_ID}}.dkr.ecr.us-west-2.amazonaws.com/channels-email-sample-project-automation:{{PROJECT_VERSION}}"
+        imagePullPolicy: Always
+        ports:
+        - name: "http-server"
+          containerPort: 80
+          protocol: TCP
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "{{ASPNETCORE_ENVIRONMENT}}"
+        - name: ASPNETCORE_URLS
+          value: "http://*:80"
+      restartPolicy: Never
+  backoffLimit: 1

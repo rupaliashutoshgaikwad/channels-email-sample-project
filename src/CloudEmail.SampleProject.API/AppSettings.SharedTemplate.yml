@@ -1,0 +1,9 @@
+Swagger:
+  Endpoint: "swagger/v1/swagger.json"
+Authorization:
+  Issuers:
+    API: <SEND_EMAIL_API_AUTHORIZATION_ISSUERS_API>
+EmailManagementApi:
+  BaseUrl: http://email-management-api-<AWS_TWO_LETTER_ID>-channels-email-management-api.email.svc.cluster.local
+EmailMetadataApi:
+  BaseUrl: http://email-metadata-api-<AWS_TWO_LETTER_ID>-channels-email-metadata-api.email.svc.cluster.local

@@ -1,0 +1,150 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This stack represents various infrastructure required for the Email API to operate. S3, KMS, SNS, Cloudwatch."
+
+Resources:
+  AlarmingTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: channels-email-send-email-api-alarming-topic
+      TopicName: channels-email-send-email-api-alarming-topic
+
+  AlarmingTopicLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint:
+        Fn::ImportValue: channels-teams-notifier-arn
+      Protocol: lambda
+      TopicArn:
+        Ref: AlarmingTopic
+
+  S3GetAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Send Email API has failed to get an email from an S3 bucket
+      ActionsEnabled: true
+      AlarmName:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - channels-email-send-email-api-s3-get-failure
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Threshold: 0
+      Namespace:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - Email
+      MetricName: S3 Get Email Outcome
+      Dimensions:
+        - Name: Outcome
+          Value: Failure
+      Statistic: Sum
+      AlarmActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+      OKActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+
+  OutboundEmailsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Send Email API is failing to send emails
+      ActionsEnabled: true
+      AlarmName:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - channels-email-send-email-api-outbound-failure
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Threshold: 1
+      Namespace:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - Email
+      MetricName: Outbound Emails
+      Dimensions:
+        - Name: Outbound Outcome
+          Value: Failure
+      Statistic: Sum
+      Unit: Count
+      AlarmActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+      OKActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+
+  FailedOutboundKerioEmailsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Send Email API is failing to send emails
+      ActionsEnabled: true
+      AlarmName:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - channels-email-send-email-api-outbound-kerio-failure
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Threshold: 1
+      Namespace:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - Email
+      MetricName: Outbound Emails
+      Dimensions:
+        - Name: Outbound Outcome
+          Value: Failure
+        - Name: Edge Type
+          Value: Kerio
+      Statistic: Sum
+      Unit: Count
+      AlarmActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+      OKActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+
+  FailedOutboundSESEmailsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Send Email API is failing to send emails
+      ActionsEnabled: true
+      AlarmName:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - channels-email-send-email-api-outbound-ses-failure
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Threshold: 1
+      Namespace:
+        Fn::Join:
+          - "-"
+          - - Fn::ImportValue: RegionConfig-TwoLetterRegionID
+            - Email
+      MetricName: Outbound Emails
+      Dimensions:
+        - Name: Outbound Outcome
+          Value: Failure
+        - Name: Edge Type
+          Value: SES
+      Statistic: Sum
+      Unit: Count
+      AlarmActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic
+      OKActions:
+        - Fn::ImportValue: BMCCriticalAlarmTopic
+        - Ref: AlarmingTopic

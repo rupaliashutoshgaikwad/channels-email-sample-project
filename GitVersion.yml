@@ -1,0 +1,17 @@
+branches:
+  master:
+    mode: ContinuousDelivery
+    increment: Inherit
+    track-merge-target: true
+    is-release-branch: true
+  develop:
+    mode: ContinuousDelivery
+    tag: alpha
+    increment: Patch
+  pull-request:
+    mode: ContinuousDelivery
+    tag: pr
+    increment: Inherit
+    prevent-increment-of-merged-branch-version: true
+ignore:
+  sha: []

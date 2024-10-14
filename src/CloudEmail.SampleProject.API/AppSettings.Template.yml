@@ -1,0 +1,77 @@
+Serilog:
+  Using:
+  - Serilog.Sinks.Console
+  MinimumLevel:
+    Default: Information
+    Override:
+      Microsoft: Warning
+      System: Warning
+  WriteTo:
+  - Name: Console
+  Enrich:
+  - FromLogContext
+  - WithMachineName
+  - WithThreadId
+  Properties:
+    Application: CloudEmail.SampleProject.API
+
+Swagger:
+  Endpoint: "/swagger/v1/swagger.json"
+
+ConnectionStrings:
+  ReadApiDatabase: "Server=channels-email-rds-cluster.cluster-ro-<RDS_ID>.<AWS_DEFAULT_REGION>.rds.amazonaws.com;Port=3306;Uid=channelsteam;Pwd=<CREDS:<RDS_PASSWORD>>;Database=send-email-api;SslMode=VerifyCA;"
+  WriteApiDatabase: "Server=channels-email-rds-cluster.cluster-<RDS_ID>.<AWS_DEFAULT_REGION>.rds.amazonaws.com;Port=3306;Uid=channelsteam;Pwd=<CREDS:<RDS_PASSWORD>>;Database=send-email-api;SslMode=VerifyCA;"
+  ReadEmailDatabase: "Server=channels-email-rds-cluster.cluster-ro-<RDS_ID>.<AWS_DEFAULT_REGION>.rds.amazonaws.com;Port=3306;Uid=channelsteam;Pwd=<CREDS:<RDS_PASSWORD>>;Database=email;SslMode=VerifyCA;"
+
+EmailManagementApi:
+  BaseUrl: "http://email-management-api-<AREA_ID>.<INTERNAL_DOMAIN>/api/v1"
+  ApiKey: "U2VuZCBFbWFpbCBBUEk6YmFzaWM="
+  EmailFeatureToggleEndpointBaseUrl: "http://email-management-api-<AREA_ID>.<INTERNAL_DOMAIN>/email-management/v1/"
+
+AWS:
+  Region: <AWS_DEFAULT_REGION>
+
+Authorization:
+  ApiSecret: <CREDS:<<ASPNETCORE_ENVIRONMENT>_Send_Email_Api_Authorization_Secret>>
+  Issuers:
+    API: SEND_EMAIL_API_AUTHORIZATION_ISSUERS_API
+
+CLOUDWATCH_NAMESPACE: <AWS_TWO_LETTER_ID>-Email
+
+SmtpServiceConfiguration:
+  KerioHost: <KERIO_HOST>
+
+AmazonSESConfiguration:
+  SesConfigurationSet: "channels-email-ses-configuration-set"
+  SesTLSConfigurationSet: "channels-email-ses-tls-configuration-set"
+  SesRegion: <SES_OB_REGION>
+
+AmazonS3Configuration:
+  BucketName: "<AWS_TWO_LETTER_ID>-email-outbound-storage"
+  OutboundUnsendablesPrefix: "unsendables"
+
+VerifiedDomains: 
+  CacheDuration: 1440
+
+UserHub:
+  ServiceUser:
+    ClientId: <USERHUB_KEY>
+    ClientSecret: <CREDS:<<USERHUB_SECRET>>>
+
+UnverifiedDomains:
+  CacheDuration: 15
+
+RetryCountConfiguration:
+  MaxRetryCount: 3
+
+LogEmailSqsConfiguration:
+  TargetQueueUrl: "https://sqs.<AWS_DEFAULT_REGION>.amazonaws.com/<AWS_ACCOUNT_ID>/channels-email-log-email-lambda-queue.fifo"
+  S3BucketName: "<AWS_TWO_LETTER_ID>-email-outbound-storage"
+
+CloudStorageSqsConfiguration:
+  TargetQueueUrl: "https://sqs.<AWS_DEFAULT_REGION>.amazonaws.com/<AWS_ACCOUNT_ID>/channels-email-outbound-cloud-storage-lambda-queue.fifo"
+  S3BucketName: "<AWS_TWO_LETTER_ID>-email-outbound-storage"
+
+EmailMetadataApi:
+  BaseUrl: "http://channels-metadata-api.tools.svc.cluster.local/api/v1/metadata"
+  ApiKey: <CREDS:<<METADATA_TOKEN>>>

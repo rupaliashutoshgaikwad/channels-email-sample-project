@@ -1,0 +1,13 @@
+version: 0.2
+phases:
+  build:
+    commands:
+      - cd /app
+      - dotnet test --no-restore --no-build --filter Category=Acceptance CloudEmail.SampleProject.API.Automation/CloudEmail.SampleProject.API.Automation.csproj -r . --logger trx 2>&1 | tee stdout_stderr.log
+      - mv CloudEmail.SampleProject.API.Automation/*.trx CloudEmail.SampleProject.API.Automation/TestResults.xml
+artifacts:
+  files:
+    - CloudEmail.SampleProject.API.Automation/TestResults.xml
+    - stdout_stderr.log
+  discard-paths: yes
+  base-directory: /app

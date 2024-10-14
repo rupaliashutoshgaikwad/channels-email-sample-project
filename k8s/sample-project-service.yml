@@ -1,0 +1,17 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: sample-project
+  namespace: outbound
+  labels:
+    app: sample-project
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+spec:
+  ports:
+    - port: 80
+      targetPort: "http-server"
+  selector:
+    app: sample-project
+  type: "NodePort"

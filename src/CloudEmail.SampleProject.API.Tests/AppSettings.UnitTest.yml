@@ -1,0 +1,32 @@
+﻿Logging:
+  LogLevel:
+    Default: Debug
+    System: Information
+    Microsoft: Information
+
+AWS:
+  Region: us-west-2
+
+Authorization:
+  ApiSecret: "ZGV2LWVtYWlsLW1hbmFnZW1lbnQtYXBpLXNlY3JldC1hcGhpZ2gtZml2ZXMtZm9yLWxpZmU="
+  Issuers:
+    Central: "https://api.incontact.com"
+    UserHub: "https://auth.dev.nice-incontact.com"
+  SigningKeyLifetime: 5
+
+JobSchedule:
+  VerificationRefresh: "0 */2 * * *" # every 2 hour(s)
+  GetDomains: "0 */1 * * *" # every 1 hour(s)
+  UpdateStatuses: "*/5 * * * *" # every 5 minute(s)
+
+CLOUDWATCH_NAMESPACE: do-Email
+
+ClusterIncodeCreds:
+  ClusterIncodeUser: "svc"
+  ClusterIncodePass: "Blf01!2"
+
+AmazonS3Configuration:
+  BucketName: "do-email-outbound-storage"
+
+RetryCountConfiguration:
+  MaxRetryCount: 3

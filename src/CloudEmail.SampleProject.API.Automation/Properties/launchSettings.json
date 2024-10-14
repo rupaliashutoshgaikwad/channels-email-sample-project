@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "CloudEmail.SampleProject.API.Automation": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local"
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates the ECR Repository used by the Send Email API.
+Resources:
+  ApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: channels-email-send-email-api
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: Test, Staging & Prod
+          Effect: Allow
+          Principal:
+            AWS:
+            - arn:aws:iam::545209810301:root
+            - arn:aws:iam::265671366761:root
+            - arn:aws:iam::737494165703:root
+            - arn:aws:iam::751344753113:root
+            - arn:aws:iam::150598861634:root
+            - arn:aws:iam::977437863335:root
+            - arn:aws:iam::635146017371:root
+            - arn:aws:iam::225195882266:root
+            - arn:aws:iam::637423616941:root
+          Action:
+          - ecr:BatchCheckLayerAvailability
+          - ecr:BatchGetImage
+          - ecr:GetDownloadUrlForLayer
+  PRIntegrationRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: channels-email-send-email-api-integration-pr
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: Test, Staging & Prod
+          Effect: Allow
+          Principal:
+            AWS:
+            - arn:aws:iam::545209810301:root
+            - arn:aws:iam::265671366761:root
+            - arn:aws:iam::737494165703:root
+          Action:
+          - ecr:BatchCheckLayerAvailability
+          - ecr:BatchGetImage
+          - ecr:GetDownloadUrlForLayer
+  AutomationRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: channels-email-send-email-api-automation
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: Test, Staging & Prod
+          Effect: Allow
+          Principal:
+            AWS:
+            - arn:aws:iam::545209810301:root
+            - arn:aws:iam::265671366761:root
+            - arn:aws:iam::737494165703:root
+          Action:
+          - ecr:BatchCheckLayerAvailability
+          - ecr:BatchGetImage
+          - ecr:GetDownloadUrlForLayer

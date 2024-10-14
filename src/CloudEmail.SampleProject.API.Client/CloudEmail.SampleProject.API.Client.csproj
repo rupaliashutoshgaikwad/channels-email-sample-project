@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ProjectGuid>E83781FB-E8DA-405E-8C63-920874D19B84</ProjectGuid>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Channels Team</Authors>
+    <Company>NICE inContact</Company>
+    <Description>Client for managing access to CloudEmail.SampleProject.API endpoints.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CloudEmail.API.Models" Version="1.3.145-41" />
+    <PackageReference Include="CloudEmail.ApiAuthentication" Version="20.0.98" />
+    <PackageReference Include="System.Net.Http.Json" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CloudEmail.SampleProject.API.Models\CloudEmail.SampleProject.API.Models.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,472 @@
+import groovy.json.JsonOutput
+
+def dotnet_ci_image="channels-email-ci-dotnetcore"
+
+pipeline {
+    agent {
+        docker {
+            image "${dotnet_ci_image}:latest"
+            args "--privileged -u root -v /var/run/docker.sock:/var/run/docker.sock"
+            alwaysPull true
+            customWorkspace "sample-project/${BUILD_ID}+${BUILD_TIMESTAMP}"
+            reuseNode false
+            registryUrl 'https://369498121101.dkr.ecr.us-west-2.amazonaws.com'
+            registryCredentialsId 'ecr:us-west-2:ServiceAccess-jenkins-ecr_369498121101'
+        }
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
+    environment {
+        TAGS="owner=channels,product=cloudemail"
+        IGNORE_NORMALISATION_GIT_HEAD_MOVE=1
+        MYGET_VERSION=""
+        NUGET_SOURCE="https://nuget.pkg.github.com/inContact/index.json"
+        GITHUB_REPO_PATH="inContact/channels-email-sample-project"
+        PROJECT_VERSION=""
+        PROJECT_VERSION_NO_TAG=""
+        BRANCHNAME="${env.BRANCH_NAME}"
+        GITBRANCHNAME="${env.CHANGE_BRANCH}"
+        GITHUB_USERNAME="cxossp"
+        GITHUB_TOKEN=credentials("github-packages-read-write")
+        SCRIPTS_REPO_URI_WTOKEN="https://oauth2:${GITHUB_TOKEN}@github.com/inContact/channels-cicd.git"
+        BUILD_NOTIFY_WEBHOOK=credentials("channels-1-build-notifications-webhook-url")
+        DEV_AWS_DEPLOY_ROLE="ServiceAccess-channels-email-sample-project-pipeline"
+        SONAR_KEY=credentials("SONAR_SCANNER_TOKEN")
+        SONAR_URL=credentials("SONAR_SCANNER_URL")
+        SONAR_PROJECT_NAME="com.nice.channels-email-sample-project"
+    }
+    stages {
+        stage("Set up Version") {
+            steps {
+                sh "git config --global --add safe.directory ${WORKSPACE}"
+                setGitVersion()
+                acquireScripts()
+                setEnvironment()
+            }
+        }
+        stage("Build & Quality Gate") {
+            when {
+                anyOf {
+                    branch "develop"
+                    branch "master"
+                }
+            }
+            environment {
+                SOLUTION="src"
+                SOLUTION_NAME="CloudEmail.SampleProject.API"
+                PROJECTS='["CloudEmail.SampleProject.API.Tests"]'
+                PROJECTS_DIR=""
+                NUGET_CONFIG="src/.nuget/NuGet.Config"
+                CONFIGURATION="Debug"
+                VERBOSE="true"
+            }
+            steps {
+                runQualityGate()
+                waitForQualityGateResults()
+                generateXUnitTestResults()
+                publishTestResultsToJira()
+            }
+        }
+        stage("Sonar Quality Gate PR") {
+            when {
+                changeRequest()
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }
+            }
+            environment {
+                SOLUTION="src"
+                SOLUTION_NAME="CloudEmail.SampleProject.API"
+                PROJECTS='["CloudEmail.SampleProject.API.Tests"]'
+                NUGET_CONFIG="src/.nuget/NuGet.Config"
+                CONFIGURATION="Debug"
+                VERBOSE="true"
+                PULLREQUEST="true"
+                PULLREQUEST_ID="$CHANGE_ID"
+                GITHUB_REPO_PATH="inContact/channels-email-sample-project"
+                GITHUB_ACCESS_TOKEN="$GITHUB_TOKEN"
+            }
+            steps {
+                runQualityGate()
+            }
+        }
+        stage("Publish to Myget") {
+            when {
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }                
+            }
+            steps {
+                buildForMyget()
+                publishToMyget("CloudEmail.SampleProject.API.Client", "CloudEmail.SampleProject.API.Client")
+                publishToMyget("CloudEmail.SampleProject.API.Models", "CloudEmail.SampleProject.API.Models")           
+            }
+        }
+        stage("Create ECR Repository"){
+             when {
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }
+            }
+            environment {
+                DEV_AWS_ACCOUNT_ID="${DEV_AWS_ACCOUNT_ID}"
+                STACK_NAME="channels-email-sample-project-ecr"
+                STACK_FILE="cloudformation/ecr-repository.yml"
+                AWS_DEFAULT_REGION="${DEV_AWS_DEFAULT_REGION}"
+            }
+            steps {
+                withCredentials([ string(credentialsId: 'channels-email_sample-project _apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+                    withAWS(role:"$DEV_AWS_DEPLOY_ROLE", roleAccount:"$DEV_AWS_ACCOUNT_ID", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'sample-project-ecr-pipeline'){
+                        deployCf()
+                    }
+                }
+            }
+        }       
+        stage("Build Docker") {
+            when {
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }
+            }
+            environment {
+                DEV_AWS_ACCOUNT_ID="${DEV_AWS_ACCOUNT_ID}"
+                SERVER_CA_PEM=credentials("testserverca_pem")
+            }
+            steps {
+                createAppSettingsFiles()
+                replaceJenkinsCreds()
+                copyCerts(SERVER_CA_PEM)
+                buildDocker("channels-email-sample-project", "--pull . --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} --build-arg GITHUB_USERNAME=${GITHUB_USERNAME}")
+            }
+            post("Push to ECR") {
+                success {
+                    withCredentials([ string(credentialsId: 'channels-email_sample_project _apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+                        withAWS(role:"$DEV_AWS_DEPLOY_ROLE", roleAccount:"$DEV_AWS_ACCOUNT_ID", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'push-ecr-sample-project'){
+                            pushDocker("300813158921.dkr.ecr.us-west-2.amazonaws.com", "channels-email-sample-project")
+                        }
+                    }
+                }
+            }
+        }
+        // stage("Build Automation Docker") {
+        //     when {
+        //         expression {
+        //             "${currentBuild.currentResult}" == 'SUCCESS'
+        //         }
+        //     }
+        //     environment {
+        //         DEV_AWS_ACCOUNT_ID="${DEV_AWS_ACCOUNT_ID}"
+        //     }
+        //     steps {
+        //         buildDocker("channels-email-sample-project-automation", "--pull -f src/CloudEmail.SampleProject.API.Automation/Dockerfile --pull . --build-arg ASPNETCORE_ENVIRONMENT=Development")
+        //     }
+        //     post("Push to ECR") {
+        //         success {
+        //             withCredentials([ string(credentialsId: 'channels-email_sample_project _apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+        //                 withAWS(role:"$DEV_AWS_DEPLOY_ROLE", roleAccount:"$DEV_AWS_ACCOUNT_ID", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'dev-push-redrive-api-automation-pipeline'){
+        //                     pushDocker("300813158921.dkr.ecr.us-west-2.amazonaws.com", "channels-email-sample-project-automation")
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        // stage("Run Automation Tests") {
+        //     when {
+        //         expression {
+        //             "${currentBuild.currentResult}" == 'SUCCESS'
+        //         }
+        //     }
+        //     environment {
+        //         AWS_DEFAULT_REGION="${DEV_AWS_DEFAULT_REGION}"
+        //         POD_SERVICE_ROLE="do-channels-email-sample-project-role"
+        //         ASPNETCORE_ENVIRONMENT="Development"
+        //         AWS_ACCOUNT_ID="${DEV_AWS_ACCOUNT_ID}"
+        //         TEST_RESULTS_XML_BODY=" "
+        //     }
+        //     steps {
+        //         withCredentials([ string(credentialsId: 'channels-email_sample_project _apiPipeline_ExternalId', variable: 'EXTERNAL_ID') ]){
+        //             withAWS(role:"$DEV_AWS_DEPLOY_ROLE", roleAccount:"$DEV_AWS_ACCOUNT_ID", externalId: "$EXTERNAL_ID", duration: 3600, roleSessionName: 'sample-project-automation-test-pipeline'){
+        //                 runTestsK8s('k8s/sample-project-acceptance-testing.yml.template', 'sample-project-acceptance')
+        //             }
+        //         }
+        //     }
+        // }
+        stage("Github Release") {
+            when {
+                branch "master"
+                expression {
+                    "${currentBuild.currentResult}" == 'SUCCESS'
+                }
+            }
+            steps {
+                githubRelease()
+            }
+        }
+    }
+    post {
+        failure {
+            notifyBuildFailure()
+        }
+        fixed {
+            notifyBuildFixed()
+        }
+    }
+}
+def setEnvironment(){
+
+    envParams = readJSON file: 'scripts/config/environmentConfig.json'
+    
+    devParams=envParams["dev"]
+    DEV_AWS_ACCOUNT_ID="${devParams.AWS_ACCOUNT_ID}"
+    DEV_AWS_DEFAULT_REGION="${devParams.AWS_DEFAULT_REGION}"
+}
+def createAppSettingsFiles() {
+    dir('src/CloudEmail.SampleProject.API') {
+        def replaceListPattern = /<(?!<|CREDS:)(.*?)>/
+        templateContent = readFile file: 'AppSettings.Template.yml'
+        def matches = (templateContent =~ replaceListPattern)
+        def replaceList = []
+        if (matches) {
+            def matchGroup = matches.group(1)
+            matches.each { match ->
+                def replaceItem = match[1].toString()
+                replaceList.add(replaceItem)
+            }
+        }
+        matches = null
+ 
+        envParams.each { myData ->
+            if (myData.key != "ireland" && myData.key != "govcloud-east") {
+                ymlObject = readYaml file: "AppSettings.Template.yml"
+                ymlObject["Authorization"]["Issuers"]["API"] = myData.value["SEND_EMAIL_API_AUTHORIZATION_ISSUERS_API"]
+                writeYaml file: "AppSettings.${myData.value["ASPNETCORE_ENVIRONMENT"]}.yml", data: ymlObject, overwrite: true
+                replaceList.each { replaceItem -> 
+                    if (myData.value[replaceItem]) 
+                    {
+                        sh "sed -i \'s/<${replaceItem}>/${myData.value[replaceItem]}/g\' AppSettings.${myData.value["ASPNETCORE_ENVIRONMENT"]}.yml"
+                    }
+                }
+                sh "cat AppSettings.${myData.value["ASPNETCORE_ENVIRONMENT"]}.yml"
+            }
+        }
+        sh "ls"
+    }
+}
+def replaceJenkinsCreds()
+{
+    dir('src/CloudEmail.SampleProject.API') {
+        echo 'inside replaceJenkinsCreds 1'
+        def files = findFiles(glob: 'AppSettings.*.yml', excludes: '*.Template.yml') 
+        files.each{ f -> 
+            echo "Replacing Jenkins Credentials in file: ${f.name}"
+            def pattern = /<CREDS:<(.*?)>>/
+            
+            ymlString = readFile file: f.name
+            def matches = (ymlString =~ pattern)
+            def credsList = []
+            
+            if (matches) {
+              def matchGroup = matches.group(1)
+              matches.each { match ->
+                def credential = match[1].toString()
+                credsList.add(credential)
+              }
+            }
+            matches = null
+            
+            credsList.each { cred ->
+                withCredentials([ string(credentialsId: "${cred}", variable: 'new_value') ]) {
+                    sh "sed -i \'s/<CREDS:<${cred}>>/${new_value}/g\' ${f.name}"
+                }
+            }
+            // sh "cat ${f.name}"
+        }
+    }
+}
+def notifyBuildFailure() {
+    office365ConnectorSend(
+        message:"${env.JOB_NAME} #${env.BUILD_NUMBER} failed! (<a href=\"${env.RUN_DISPLAY_URL}\">Open</a>)",
+        color: "8B0000",
+        status: "FAILED",
+        webhookUrl: "${env.BUILD_NOTIFY_WEBHOOK}"
+    )
+}
+def notifyBuildFixed() {
+    office365ConnectorSend(
+        message:"${env.JOB_NAME} #${env.BUILD_NUMBER} has been fixed! (<a href=\"${env.RUN_DISPLAY_URL}\">Open</a>)",
+        color: "228B22",
+        status: "SUCCESS",
+        webhookUrl: "${env.BUILD_NOTIFY_WEBHOOK}"
+    )
+}
+def acquireScripts() {
+    sh """
+        if [ -d "scripts" ]; then
+            cd scripts && git fetch --all && git reset --hard origin/master
+        else
+            git clone ${SCRIPTS_REPO_URI_WTOKEN} scripts -b master
+            cd scripts && find . -type f -iname "*.sh" -exec chmod +x {} \\;
+        fi
+    """
+    echo "Scripts cloned and made executable."
+}
+def setGitVersion() {
+    
+    if ("${BRANCH_NAME}" == "master") {
+       script {
+            PROJECT_VERSION=sh(script: "mono /opt/GitVersion/GitVersion.exe /b master /showvariable SemVer", returnStdout: true).trim()
+            PROJECT_VERSION_NO_TAG=sh(script: "mono /opt/GitVersion/GitVersion.exe /b master /showvariable MajorMinorPatch", returnStdout: true).trim()
+        }
+    } else {
+        PROJECT_VERSION="${GITBRANCHNAME}"
+        PROJECT_VERSION_NO_TAG="${GITBRANCHNAME}"
+    }
+    script{
+        MYGET_VERSION=sh(script: "mono /opt/GitVersion/GitVersion.exe /b master /showvariable SemVer", returnStdout: true).trim()
+    }
+    setupVersion()
+}
+def setupVersion() {
+    sh """
+        if [ ! -d "version" ]; then
+            mkdir version
+        fi
+    """
+    echo "MYGET_VERSION: ${MYGET_VERSION}"
+    echo "PROJECT_VERSION: ${PROJECT_VERSION}"
+    echo "PROJECT_VERSION_NO_TAG: ${PROJECT_VERSION_NO_TAG}"
+    sh "echo ${PROJECT_VERSION} > version/number"
+}
+def githubRelease() {   
+    prepareGithubHub()
+    sh """
+        hub release create -m "Release ${PROJECT_VERSION}" ${PROJECT_VERSION} -t ${BRANCH_NAME}
+    """
+    echo "Git create release ${PROJECT_VERSION}."
+}
+def setupWaitForResults() {
+    sh """
+        if [ ! -d "s3-sonar-report" ]; then
+            mkdir s3-sonar-report
+        fi
+        mv sonar/* s3-sonar-report/
+    """
+}
+def setupProcessResults() {
+    sh """
+        if [ ! -d "test-results" ]; then
+            mkdir test-results
+        fi
+        mv *.xml test-results/
+    """
+}
+def runQualityGate() {
+    setupSonarResults()
+    sh "scripts/jenkins/sonar-upload-dotnet.sh"
+    sh "ls -la"
+    xunit(thresholds: [failed(failureNewThreshold: '0', failureThreshold: '0', unstableNewThreshold: '0', unstableThreshold: '0')],
+        tools: [MSTest(deleteOutputFiles: true, failIfNotNew: true, pattern: "CloudEmail.SampleProject.API.Tests-TestResults*.xml", skipNoTestFiles: false, stopProcessingIfError: true)])
+}
+def setupSonarResults() {
+    sh """
+        if [ ! -d "sonar" ]; then
+            mkdir sonar
+        fi
+    """
+}
+def waitForQualityGateResults() {
+    setupWaitForResults()
+    sh "scripts/ci/tasks/wait-sonar-results.sh"
+}
+def buildForMyget() {
+    dir("src") {        
+        if ("${BRANCH_NAME}" == "master") {
+                sh "dotnet build --configfile .nuget/NuGet.Config /p:Version=${MYGET_VERSION} /p:RepositoryUrl=${GITHUB_REPO_PATH}"
+        } else {
+            sh "dotnet build --configfile .nuget/NuGet.Config /p:Version=${MYGET_VERSION}-alpha-${GITBRANCHNAME}.${env.BUILD_NUMBER} /p:RepositoryUrl=${GITHUB_REPO_PATH}"
+        }
+    }
+}
+def publishToMyget(projectName, packageName) {
+    dir("src") {
+        if ("${BRANCH_NAME}" == "master") {
+                sh "nuget push ${projectName}/bin/Debug/${packageName}.${MYGET_VERSION}.nupkg -ConfigFile '.nuget/NuGet.Config' -Source $NUGET_SOURCE"
+        } else {
+            sh "nuget push ${projectName}/bin/Debug/${packageName}.${MYGET_VERSION}-alpha-${GITBRANCHNAME}.${env.BUILD_NUMBER}.nupkg -ConfigFile '.nuget/NuGet.Config' -Source $NUGET_SOURCE"
+        }
+    }
+}
+def prepareGithubHub() {
+    dir("github-tool") {
+        sh """
+            rm -rf hub-linux-amd64-2.6.0.tgz
+            curl -LJO https://github.com/github/hub/releases/download/v2.6.0/hub-linux-amd64-2.6.0.tgz
+            rm -rf hub
+            tar -xvf *.tgz -C . && mv hub-linux-amd64*/bin/* /usr/local/bin
+            if [ \$? != 0 ]; then
+                echo "Error: extraction of github-tool failed!"
+                exit 1;
+            fi
+        """
+    }
+}
+def generateXUnitTestResults() {
+	dir("src") {
+        
+        sh "dotnet test --test-adapter-path:. --logger:xunit CloudEmail.SampleProject.API.Tests"
+    }
+}
+def publishTestResultsToJira() {
+    def upload_xunit = load "scripts/jenkins/upload-xunit-tests.groovy"
+    upload_xunit.publishTestResults("src/CloudEmail.SampleProject.API.Tests/TestResults/TestResults", "DE-25560")
+}
+def deployCf() {
+    sh "scripts/cd/tasks/deploy-cf-template.sh ${PROJECT_VERSION}"
+}
+def buildDocker(imageName, buildArgs) {
+    script {
+        docker.build(imageName, buildArgs)
+    }
+}
+def pushDocker(registry, imageName) {
+    script {
+        def login = ecrLogin()
+        sh "${login}"
+        sh "docker tag ${imageName} ${registry}/${imageName}:${PROJECT_VERSION}"
+        sh "docker push ${registry}/${imageName}:${PROJECT_VERSION}"
+    
+        if ("${BRANCH_NAME}" == "master") {
+            sh "docker tag ${imageName} ${registry}/${imageName}:latest"
+            sh "docker push ${registry}/${imageName}:latest"
+        }
+    }
+}
+def runTestsK8s(templateFile, jobName) {
+    sh """
+        scripts/cd/tasks/replace-in-yaml.sh \
+            --file='${templateFile}' \
+            --replacements='{{AWS_ACCOUNT_ID}}=${AWS_ACCOUNT_ID} {{POD_SERVICE_ROLE}}=${POD_SERVICE_ROLE} {{PROJECT_VERSION}}=${PROJECT_VERSION} {{ASPNETCORE_ENVIRONMENT}}=${ASPNETCORE_ENVIRONMENT}'
+    """
+    sh """
+        scripts/kubernetes/kubectl/apply-job-wait-complete.sh \
+            --file='${templateFile}' \
+            --cluster_name='channels-email' \
+            --job_name='${jobName}' \
+            --namespace='testing'
+    """
+    sh "kubectl -n testing -c ${jobName} logs job/${jobName} > TestResults.xml"
+    sh """
+        scripts/kubernetes/kubectl/delete-manifest.sh --file='${templateFile}' --cluster_name='channels-email'
+    """
+    sh "cat TestResults.xml"
+    xunit(thresholds: [failed(failureNewThreshold: '0', failureThreshold: '0', unstableNewThreshold: '0', unstableThreshold: '0')], tools: [MSTest(deleteOutputFiles: true, failIfNotNew: true, pattern: "TestResults.xml", skipNoTestFiles: false, stopProcessingIfError: true)])
+}
+
+def copyCerts(ca_pem) {
+    sh """
+        mkdir -p src/certs/
+        mv $ca_pem src/certs/
+        ls src/certs/
+    """
+}

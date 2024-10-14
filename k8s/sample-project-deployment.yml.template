@@ -1,0 +1,111 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: sample-project
+  namespace: outbound
+spec:
+  host: sample-project.outbound.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveErrors: 2
+      interval: 5m
+      baseEjectionTime: 15m
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample-project-horizontal-auto-scaler
+  namespace: outbound
+  labels:
+    version: {{PROJECT_VERSION}}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample-project
+  minReplicas: {{MIN_REPLICAS}}
+  maxReplicas: {{MAX_REPLICAS}}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-project
+  namespace: outbound
+  labels:
+    app: sample-project
+    version: {{PROJECT_VERSION}}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-project
+  template:
+    metadata:
+      labels:
+        app: sample-project
+      annotations:
+        iam.amazonaws.com/role: arn:aws:iam::{{AWS_ACCOUNT_ID}}:role/{{POD_SERVICE_ROLE}}
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                      - sample-project
+                  topologyKey: "kubernetes.io/hostname"
+      hostname: sample-project
+      containers:
+      - name: sample-project
+        resources:
+          requests:
+            memory: 1028Mi
+            cpu: 500m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+        image: "300813158921.dkr.ecr.us-west-2.amazonaws.com/channels-email-sample-project:{{PROJECT_VERSION}}"
+        imagePullPolicy: Always
+        ports:
+        - name: "http-server"
+          containerPort: 80
+          protocol: TCP
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "{{ASPNETCORE_ENVIRONMENT}}"
+        - name: ASPNETCORE_URLS
+          value: "http://*:80"
+        livenessProbe:
+          httpGet:
+            path: /index.html
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 30

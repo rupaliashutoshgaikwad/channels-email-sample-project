@@ -1,0 +1,88 @@
+﻿Logging:
+  LogLevel:
+    Default: Debug
+    System: Error
+    Microsoft: Error
+    Hangfire: Error
+
+AllowedHosts: "*"
+
+AWS:
+  Region: us-west-2
+
+CLOUDWATCH_NAMESPACE: do-Email
+
+Auth:
+  Token: eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NDI5OTI1MzUsImlzcyI6Imh0dHA6Ly9lbWFpbC1hcGktZGV2LmluLmxhYiJ9.1jK9eTahfR9FItX_79A5PbR7D8jEvkvc8tdLe3iBCPA
+
+SendEmailApiConfiguration:
+  BaseUrl: http://send-email-api-na1.dev.inucn.com/api/v1
+  BasicToken: c2VuZC1lbWFpbC1hcGktYXV0b21hdGlvbjpiYXNpYw==
+  FileServerVip: "doa-C83cor01.in.lab"
+
+AppSettings:
+  StorageService:
+    User: "channels"
+    Pass: "F9ou2hiu!"
+    Host: "https://vhdcw3rn54.execute-api.us-west-2.amazonaws.com/alpha"
+    Port: "0"
+    Bucket: "ic-tc5"
+    Prefix: ""
+    Cluster: hc1
+  ApplicationRegistration:
+    Name: Dev Email API Automation
+
+TestSendEmailConfiguration:
+  ContactId: "1"
+  BusinessUnit: 5333
+  ToAddress: "noreply@icmailtest.com"
+  FromAddress: "test_send_email@niceincontact.com"
+  Subject: "Test Send Email Job"
+
+ChannelsGmailImapAccess:
+  Host: "imap.gmail.com"
+  Port: 993
+  Username: "john.mckenna.nice@gmail.com"
+  Password: "abxyseowyhzzshby"
+
+CustomSmtpConfiguration:
+  Host: "smtp.gmail.com"
+  Port: 465
+  TlsOption:
+    Id: 3
+    Name: "Require TLS"
+  BusinessUnitNumber: 1000000  
+  FromAddress: "do83customSMTP@gmail.com"
+  ToAddress: "noreply@icmailtest.com"
+
+SESConfiguration:
+  BusinessUnitNumber: 5333
+  FromAddress: icmailtest.com
+  ToAddress: "noreply@icmailtest.com"
+
+AmazonSESConfiguration:
+  SesConfigurationSet: "channels-email-ses-configuration-set"
+  SesTLSConfigurationSet: "channels-email-ses-tls-configuration-set"
+  SesRegion: "us-west-2"
+
+Authorization:
+  ApiSecret: <CREDS:<<ASPNETCORE_ENVIRONMENT>_Send_Email_Api_Authorization_Secret>>
+  Issuers:
+    API: SEND_EMAIL_API_AUTHORIZATION_ISSUERS_API
+
+Swagger:
+  Endpoint: "/swagger/v1/swagger.json"
+
+KerioConfiguration:
+  BusinessUnitNumber: 5333
+  ToAddress: "noreply@icmailtest.com"
+
+RetryCountConfiguration:
+  MaxRetryCount: 3
+
+SQS:
+   QueueUrl: "https://sqs.us-west-2.amazonaws.com/300813158921/channels-email-sample-test-queue"
+
+EmailSqsConfiguration:
+  TargetQueueUrl: "https://sqs.us-west-2.amazonaws.com/300813158921/channels-email-sample-test-queue"
+  ResponseQueueUrl: "https://sqs.us-west-2.amazonaws.com/300813158921/channels-email-sample-test-response-queue.fifo"
